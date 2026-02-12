@@ -5,6 +5,7 @@ from collections import Counter, defaultdict
 from nltk.tokenize import word_tokenize
 import random
 
+
 class BoWFeaturizer:
     """
     This is a bag-of-words featurizer. It uses `build_vocab` to load a list of Examples
@@ -12,9 +13,10 @@ class BoWFeaturizer:
     For a given Example, it counts the number of instances of each word in
     `self.vocab` and returns this vector of counts.
     """
+
     def __init__(self, max_vocab_size=10000):
         self.max_vocab_size = max_vocab_size
-        self.vocab = {} # mapping word -> index
+        self.vocab = {}  # mapping word -> index
         self.inverse_vocab = {}
         self.vocab_size = 0
 
@@ -34,7 +36,7 @@ class BoWFeaturizer:
             # [cite_start]Filter to max_vocab_size [cite: 207]
         most_common = counts.most_common(self.max_vocab_size)
         # STUDENT END ------------------------------------
-        
+
         # you might need to remove the `count` variable here, depending on how you
         # implemented the above.
         self.vocab = {word: idx for idx, (word, count) in enumerate(most_common)}
@@ -72,7 +74,7 @@ class BigramFeaturizer(BoWFeaturizer):
             bigrams = [f"{tokens[i]} {tokens[i + 1]}" for i in range(len(tokens) - 1)]
             counts.update(bigrams)
             # STUDENT END ------------------------------
-        
+
         # TODO: build your vocabulary of the `self.max_vocab_size` most frequent bigrams.
         # STUDENT START -------------------------------------------
         most_common = counts.most_common(self.max_vocab_size)
@@ -85,7 +87,7 @@ class BigramFeaturizer(BoWFeaturizer):
     def get_feature_vector(self, text):
         tokens = word_tokenize(text.lower())
         vec = torch.zeros(self.vocab_size)
-        
+
         # TODO: use the list of tokens to generate bigram features.
         # Return the bigram feature vector.
         # STUDENT START --------------------------------------
@@ -129,16 +131,18 @@ class CustomFeaturizer(BoWFeaturizer):
 
         return vec
 
+
 class BlackBoxClassifier(torch.nn.Module):
     """
     This is a logistic regression classifier using PyTorch's built-in modules.
     Only used in Task 1. You will implement something like this from scratch
     in the LogisticRegressionClassifier class.
     """
+
     def __init__(self, input_dim, num_classes):
         super(BlackBoxClassifier, self).__init__()
         self.linear = torch.nn.Linear(input_dim, num_classes)
-        
+
     def forward(self, x):
         # Returns logits (unnormalized scores)
         return self.linear(x)
@@ -182,30 +186,30 @@ def train_logistic_regression(train_data, dev_data, featurizer, num_classes=4, l
         model = LogisticRegressionClassifier(input_dim, num_classes)
     elif method == "bow":
         model = BlackBoxClassifier(input_dim, num_classes)
-    
+
     print("Training logistic regression...")
-    
+
     for epoch in range(epochs):
         shuffled_train = train_data.copy()
         random.shuffle(shuffled_train)
         total_loss = 0
-        
+
         for ex in shuffled_train:
-            x = featurizer.get_feature_vector(ex.text) # (vocab_size,)
+            x = featurizer.get_feature_vector(ex.text)  # (vocab_size,)
             y_true = ex.label
-            
+
             # 1. Call the forward function and compute the probability
             # of each class according to the model.
             logits = model.forward(x)
             probs = model.softmax(logits)
-            
+
             # TODO: 2. Compute the negative log likelihood loss.
             # STUDENT START ----------------------------
             # Loss = -log(probability of true class)
             loss = -torch.log(probs[y_true])
             total_loss += loss.item()
             # STUDENT END ------------------------------
-            
+
             # TODO: 3. Compute the gradient for the weights, and the gradient for
             # for the bias. You may not use .backward().
             # STUDENT START ----------------------------
@@ -218,7 +222,7 @@ def train_logistic_regression(train_data, dev_data, featurizer, num_classes=4, l
             grad_weights = torch.outer(x, grad_z)
             grad_bias = grad_z
             # STUDENT END ------------------------------
-            
+
             # TODO: 4. Update the parameters by multiplying the gradients you
             # derived in the previous step by the learning rate, and then subtracting
             # them from the weights and biases. You will need at least 1 line to update the
@@ -228,9 +232,9 @@ def train_logistic_regression(train_data, dev_data, featurizer, num_classes=4, l
             model.weights -= lr * grad_weights
             model.bias -= lr * grad_bias
             # STUDENT END ------------------------------
-            
-        print(f"Epoch {epoch+1}, Loss: {total_loss/len(train_data):.4f}")
-        
+
+        print(f"Epoch {epoch + 1}, Loss: {total_loss / len(train_data):.4f}")
+
     return model
 
 
@@ -242,18 +246,18 @@ def train_torch_model(train_data, dev_data, featurizer, num_classes=4, lr=0.01, 
     model = BlackBoxClassifier(input_dim, num_classes)
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=lr)
-    
+
     print("Training Built-in PyTorch Model...")
-    
+
     # This is an example of a training loop. Here, we're using only black-box
     # built-in PyTorch functions. You will implement the underlying functionality
     # of these functions as part of Task 2.
     for epoch in range(epochs):
         shuffled_train = train_data.copy()
         random.shuffle(shuffled_train)
-        model.train() # Set model to training mode
+        model.train()  # Set model to training mode
         total_loss = 0
-        
+
         for ex in shuffled_train:
             x = featurizer.get_feature_vector(ex.text)
             x_tensor = x.unsqueeze(0)
@@ -264,9 +268,9 @@ def train_torch_model(train_data, dev_data, featurizer, num_classes=4, lr=0.01, 
             total_loss += loss.item()
             loss.backward()
             optimizer.step()
-            
-        print(f"Epoch {epoch+1}, Loss: {total_loss/len(train_data):.4f}")
-    
+
+        print(f"Epoch {epoch + 1}, Loss: {total_loss / len(train_data):.4f}")
+
     # TODO: You're given the weight matrix of your trained model, which is of
     # shape (C, V), where C is the number of classes (here, 4) and V is
     # the vocabulary size. For each class, you will get the top-5 weight indices,
@@ -290,5 +294,5 @@ def train_torch_model(train_data, dev_data, featurizer, num_classes=4, lr=0.01, 
             top_words.append(word)
         print(f"{classes[i]}: {top_words}")
     # STUDENT END ------------------------------------
-        
+
     return model
